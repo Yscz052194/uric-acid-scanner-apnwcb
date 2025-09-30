@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -123,11 +123,23 @@ export default function StatisticsScreen() {
   const [weeklyData, setWeeklyData] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
+  const calculateWeeklyData = useCallback(async (): Promise<number[]> => {
+    const weekData: number[] = [];
+    const today = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateKey = formatDateKey(date);
+      
+      const dayStats = await StorageService.getDailyStats(dateKey);
+      weekData.push(dayStats?.totalPurine || 0);
+    }
+    
+    return weekData;
   }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [logs, profile] = await Promise.all([
         StorageService.getFoodLogs(),
@@ -151,23 +163,11 @@ export default function StatisticsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [calculateWeeklyData]);
 
-  const calculateWeeklyData = async (): Promise<number[]> => {
-    const weekData: number[] = [];
-    const today = new Date();
-    
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateKey = formatDateKey(date);
-      
-      const dayStats = await StorageService.getDailyStats(dateKey);
-      weekData.push(dayStats?.totalPurine || 0);
-    }
-    
-    return weekData;
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const calculateStats = () => {
     if (foodLogs.length === 0) {
